@@ -36,8 +36,8 @@ committed. Commit messages start with `Part N:`. More commits per part welcome (
 
 | Part | Done means | Status |
 |------|-----------|--------|
-| **Part 0 — Boot** | README pushed before any code; Laravel + React skeletons boot locally | ✅ Both skeletons boot; `Part 0:` skeleton commit pending |
-| **Part 1 — Data** | Migrations + models + seeders (2 users, ~10 items); `migrate --seed` works from scratch | ⬜ |
+| **Part 0 — Boot** | README pushed before any code; Laravel + React skeletons boot locally | ✅ |
+| **Part 1 — Data** | Migrations + models + seeders (2 users, ~10 items); `migrate --seed` works from scratch | ✅ |
 | **Part 2 — API core** | Login, order CRUD while in `draft`, orders list endpoint with status filter + text search | ⬜ |
 | **Part 3 — The loop** | All 8 transitions with role gates + guards, price snapshot, stock deduction in a transaction, activity log; whole loop works via curl/Postman | ⬜ |
 | **Part 4 — UI** | Login, list with filters/badges, order form, detail page with role-aware actions + confirmations + activity log; whole loop works by clicking | ⬜ |
