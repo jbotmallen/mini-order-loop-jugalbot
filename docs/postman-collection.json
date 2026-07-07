@@ -1,0 +1,928 @@
+{
+  "info": {
+    "name": "Mini Order Loop — Part 2 + 3",
+    "description": "Full API test suite: auth, draft CRUD, the 8-transition loop, guards and refusals. Run top-to-bottom with the Collection Runner against a fresh `php artisan migrate:fresh --seed`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8000/api" },
+    { "key": "rita_token", "value": "" },
+    { "key": "alan_token", "value": "" },
+    { "key": "order1_id", "value": "" },
+    { "key": "order2_id", "value": "" },
+    { "key": "order3_id", "value": "" },
+    { "key": "order4_id", "value": "" },
+    { "key": "item1_stock", "value": "" },
+    { "key": "item2_stock", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "0 — Setup",
+      "item": [
+        {
+          "name": "Login Rita (requester)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.test('200, token, role=requester', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(json.token).to.be.a('string');",
+                  "    pm.expect(json.user.role).to.eql('requester');",
+                  "});",
+                  "pm.collectionVariables.set('rita_token', json.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"requester@demo.test\",\n  \"password\": \"password\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/login", "host": ["{{base_url}}"], "path": ["login"] }
+          }
+        },
+        {
+          "name": "Login Alan (approver)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.test('200, token, role=approver', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(json.token).to.be.a('string');",
+                  "    pm.expect(json.user.role).to.eql('approver');",
+                  "});",
+                  "pm.collectionVariables.set('alan_token', json.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"approver@demo.test\",\n  \"password\": \"password\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/login", "host": ["{{base_url}}"], "path": ["login"] }
+          }
+        },
+        {
+          "name": "Items — snapshot stock",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const items = pm.response.json().data;",
+                  "pm.test('200 with catalog', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(items.length).to.be.at.least(10);",
+                  "});",
+                  "pm.collectionVariables.set('item1_stock', items.find(i => i.sku === 'ITM-001').stock_qty);",
+                  "pm.collectionVariables.set('item2_stock', items.find(i => i.sku === 'ITM-002').stock_qty);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{rita_token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/items", "host": ["{{base_url}}"], "path": ["items"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "1 — Happy loop",
+      "item": [
+        {
+          "name": "1.1 Rita creates order (2 items)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.test('201 draft, 2 lines, snapshot prices', () => {",
+                  "    pm.response.to.have.status(201);",
+                  "    pm.expect(json.order.status).to.eql('draft');",
+                  "    pm.expect(json.order.lines.length).to.eql(2);",
+                  "    pm.expect(Number(json.order.lines[0].unit_price)).to.eql(245);",
+                  "});",
+                  "pm.collectionVariables.set('order1_id', json.order.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{rita_token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"remarks\": \"Office supplies\",\n  \"lines\": [\n    { \"item_id\": 1, \"qty\": 3 },\n    { \"item_id\": 2, \"qty\": 1 }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/orders", "host": ["{{base_url}}"], "path": ["orders"] }
+          }
+        },
+        {
+          "name": "1.2 Rita submits",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 submitted', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().order.status).to.eql('submitted');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{rita_token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"action\": \"submit\" }",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/orders/{{order1_id}}/transitions", "host": ["{{base_url}}"], "path": ["orders", "{{order1_id}}", "transitions"] }
+          }
+        },
+        {
+          "name": "1.3 Alan rejects with reason",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.test('200 rejected, reason logged', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(json.order.status).to.eql('rejected');",
+                  "    pm.expect(JSON.stringify(json.order.activities)).to.include('Wrong items, please revise');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{alan_token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"action\": \"reject\", \"reason\": \"Wrong items, please revise\" }",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/orders/{{order1_id}}/transitions", "host": ["{{base_url}}"], "path": ["orders", "{{order1_id}}", "transitions"] }
+          }
+        },
+        {
+          "name": "1.4 Rita revises (lines kept)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.test('200 back to draft, lines kept', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(json.order.status).to.eql('draft');",
+                  "    pm.expect(json.order.lines.length).to.eql(2);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{rita_token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"action\": \"revise\" }",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/orders/{{order1_id}}/transitions", "host": ["{{base_url}}"], "path": ["orders", "{{order1_id}}", "transitions"] }
+          }
+        },
+        {
+          "name": "1.5 Rita edits quantity",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 lines replaced', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    const lines = pm.response.json().order.lines;",
+                  "    pm.expect(lines.find(l => l.item_id === 1).qty).to.eql(2);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{rita_token}}", "type": "string" }] },
+            "method": "PUT",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lines\": [\n    { \"item_id\": 1, \"qty\": 2 },\n    { \"item_id\": 2, \"qty\": 1 }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/orders/{{order1_id}}", "host": ["{{base_url}}"], "path": ["orders", "{{order1_id}}"] }
+          }
+        },
+        {
+          "name": "1.6 Rita resubmits",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 submitted again', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().order.status).to.eql('submitted');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{rita_token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"action\": \"submit\" }",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/orders/{{order1_id}}/transitions", "host": ["{{base_url}}"], "path": ["orders", "{{order1_id}}", "transitions"] }
+          }
+        },
+        {
+          "name": "1.7 Alan approves",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 approved', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().order.status).to.eql('approved');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{alan_token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"action\": \"approve\" }",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/orders/{{order1_id}}/transitions", "host": ["{{base_url}}"], "path": ["orders", "{{order1_id}}", "transitions"] }
+          }
+        },
+        {
+          "name": "1.8 Stock UNCHANGED after approve",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const items = pm.response.json().data;",
+                  "pm.test('approve deducted nothing', () => {",
+                  "    pm.expect(items.find(i => i.sku === 'ITM-001').stock_qty).to.eql(Number(pm.collectionVariables.get('item1_stock')));",
+                  "    pm.expect(items.find(i => i.sku === 'ITM-002').stock_qty).to.eql(Number(pm.collectionVariables.get('item2_stock')));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{alan_token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/items", "host": ["{{base_url}}"], "path": ["items"] }
+          }
+        },
+        {
+          "name": "1.9 Alan fulfills (deducts stock)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 fulfilled', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().order.status).to.eql('fulfilled');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{alan_token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"action\": \"fulfill\" }",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/orders/{{order1_id}}/transitions", "host": ["{{base_url}}"], "path": ["orders", "{{order1_id}}", "transitions"] }
+          }
+        },
+        {
+          "name": "1.10 Stock DROPPED after fulfill",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const items = pm.response.json().data;",
+                  "pm.test('deducted exactly qty per line', () => {",
+                  "    pm.expect(items.find(i => i.sku === 'ITM-001').stock_qty).to.eql(Number(pm.collectionVariables.get('item1_stock')) - 2);",
+                  "    pm.expect(items.find(i => i.sku === 'ITM-002').stock_qty).to.eql(Number(pm.collectionVariables.get('item2_stock')) - 1);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{alan_token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/items", "host": ["{{base_url}}"], "path": ["items"] }
+          }
+        },
+        {
+          "name": "1.11 Rita closes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 closed', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().order.status).to.eql('closed');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{rita_token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"action\": \"close\" }",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/orders/{{order1_id}}/transitions", "host": ["{{base_url}}"], "path": ["orders", "{{order1_id}}", "transitions"] }
+          }
+        },
+        {
+          "name": "1.12 Detail shows the whole story",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const order = pm.response.json().order;",
+                  "pm.test('closed + full activity trail incl. rejection reason', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(order.status).to.eql('closed');",
+                  "    pm.expect(order.activities.length).to.be.at.least(8);",
+                  "    pm.expect(JSON.stringify(order.activities)).to.include('Wrong items, please revise');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{rita_token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/orders/{{order1_id}}", "host": ["{{base_url}}"], "path": ["orders", "{{order1_id}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2 — Overstock",
+      "item": [
+        {
+          "name": "2.1 Rita creates overstock order (SSD x1000, stock 10)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.test('201 draft', () => {",
+                  "    pm.response.to.have.status(201);",
+                  "    pm.expect(json.order.status).to.eql('draft');",
+                  "});",
+                  "pm.collectionVariables.set('order2_id', json.order.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{rita_token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lines\": [ { \"item_id\": 10, \"qty\": 1000 } ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/orders", "host": ["{{base_url}}"], "path": ["orders"] }
+          }
+        },
+        {
+          "name": "2.2 Rita submits it",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 submitted', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().order.status).to.eql('submitted');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{rita_token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"action\": \"submit\" }",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/orders/{{order2_id}}/transitions", "host": ["{{base_url}}"], "path": ["orders", "{{order2_id}}", "transitions"] }
+          }
+        },
+        {
+          "name": "2.3 Alan approve FAILS 422, names item",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 with clear stock message', () => {",
+                  "    pm.response.to.have.status(422);",
+                  "    const msg = pm.response.json().message;",
+                  "    pm.expect(msg).to.include('insufficient stock');",
+                  "    pm.expect(msg).to.include('ITM-010');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{alan_token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"action\": \"approve\" }",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/orders/{{order2_id}}/transitions", "host": ["{{base_url}}"], "path": ["orders", "{{order2_id}}", "transitions"] }
+          }
+        },
+        {
+          "name": "2.4 Order STAYS submitted",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('still submitted after failed approve', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().order.status).to.eql('submitted');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{alan_token}}", "type": "string" }] },
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/orders/{{order2_id}}", "host": ["{{base_url}}"], "path": ["orders", "{{order2_id}}"] }
+          }
+        },
+        {
+          "name": "2.5 Rita cancels with note",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 cancelled', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().order.status).to.eql('cancelled');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{rita_token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"action\": \"cancel\", \"note\": \"Not enough stock anyway\" }",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/orders/{{order2_id}}/transitions", "host": ["{{base_url}}"], "path": ["orders", "{{order2_id}}", "transitions"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3 — Refusals",
+      "item": [
+        {
+          "name": "3.1 Setup: Rita creates draft order3",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 draft', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('order3_id', pm.response.json().order.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{rita_token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lines\": [ { \"item_id\": 3, \"qty\": 1 } ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/orders", "host": ["{{base_url}}"], "path": ["orders"] }
+          }
+        },
+        {
+          "name": "3.2 Rita tries to approve → 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 wrong role', () => {",
+                  "    pm.response.to.have.status(403);",
+                  "    pm.expect(pm.response.json().message).to.include('Only approvers');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{rita_token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"action\": \"approve\" }",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/orders/{{order3_id}}/transitions", "host": ["{{base_url}}"], "path": ["orders", "{{order3_id}}", "transitions"] }
+          }
+        },
+        {
+          "name": "3.3 Alan tries to submit → 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 not owner', () => {",
+                  "    pm.response.to.have.status(403);",
+                  "    pm.expect(pm.response.json().message).to.include('owner');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{alan_token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"action\": \"submit\" }",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/orders/{{order3_id}}/transitions", "host": ["{{base_url}}"], "path": ["orders", "{{order3_id}}", "transitions"] }
+          }
+        },
+        {
+          "name": "3.4 Alan approves a DRAFT → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 invalid transition', () => {",
+                  "    pm.response.to.have.status(422);",
+                  "    pm.expect(pm.response.json().message).to.include(\"'draft'\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{alan_token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"action\": \"approve\" }",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/orders/{{order3_id}}/transitions", "host": ["{{base_url}}"], "path": ["orders", "{{order3_id}}", "transitions"] }
+          }
+        },
+        {
+          "name": "3.5 Submit an EMPTY order → 422",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [""]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 empty draft created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('order4_id', pm.response.json().order.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{rita_token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/orders", "host": ["{{base_url}}"], "path": ["orders"] }
+          }
+        },
+        {
+          "name": "3.5b ...the actual submit → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 needs at least one line', () => {",
+                  "    pm.response.to.have.status(422);",
+                  "    pm.expect(pm.response.json().message).to.include('at least one line');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{rita_token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"action\": \"submit\" }",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/orders/{{order4_id}}/transitions", "host": ["{{base_url}}"], "path": ["orders", "{{order4_id}}", "transitions"] }
+          }
+        },
+        {
+          "name": "3.6 Rita submits order3 (setup for reject tests)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 submitted', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{rita_token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"action\": \"submit\" }",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/orders/{{order3_id}}/transitions", "host": ["{{base_url}}"], "path": ["orders", "{{order3_id}}", "transitions"] }
+          }
+        },
+        {
+          "name": "3.7 Submit TWICE → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 already submitted', () => {",
+                  "    pm.response.to.have.status(422);",
+                  "    pm.expect(pm.response.json().message).to.include(\"'submitted'\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{rita_token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"action\": \"submit\" }",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/orders/{{order3_id}}/transitions", "host": ["{{base_url}}"], "path": ["orders", "{{order3_id}}", "transitions"] }
+          }
+        },
+        {
+          "name": "3.8 Reject WITHOUT reason → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 reason required', () => {",
+                  "    pm.response.to.have.status(422);",
+                  "    pm.expect(pm.response.json().message).to.include('reason is required');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{alan_token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"action\": \"reject\" }",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/orders/{{order3_id}}/transitions", "host": ["{{base_url}}"], "path": ["orders", "{{order3_id}}", "transitions"] }
+          }
+        },
+        {
+          "name": "3.9 Unknown action 'banana' → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 unknown action', () => {",
+                  "    pm.response.to.have.status(422);",
+                  "    pm.expect(pm.response.json().message).to.include('Unknown action');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{alan_token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"action\": \"banana\" }",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/orders/{{order3_id}}/transitions", "host": ["{{base_url}}"], "path": ["orders", "{{order3_id}}", "transitions"] }
+          }
+        },
+        {
+          "name": "3.10 No token → 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 unauthenticated', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/orders", "host": ["{{base_url}}"], "path": ["orders"] }
+          }
+        },
+        {
+          "name": "3.11 Transition on missing order → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 clean JSON', () => {",
+                  "    pm.response.to.have.status(404);",
+                  "    pm.expect(pm.response.json().message).to.eql('Resource not found');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{alan_token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"action\": \"submit\" }",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{base_url}}/orders/99999/transitions", "host": ["{{base_url}}"], "path": ["orders", "99999", "transitions"] }
+          }
+        }
+      ]
+    }
+  ]
+}

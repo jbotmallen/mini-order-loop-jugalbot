@@ -38,4 +38,8 @@ class AuthController extends Controller
         ], 200);
     }
 
+    public function profile (Request $request) {
+        return response()->json($request->user()->only(['id', 'name', 'email', 'role']));
+    }
+
 }

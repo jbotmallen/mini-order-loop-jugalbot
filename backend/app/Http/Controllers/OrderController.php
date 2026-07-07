@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\OrderStatus;
 use App\Enums\UserRole;
+use App\Models\ActivityLog;
 use App\Models\Item;
 use App\Models\Order;
 use App\Models\OrderLine;
@@ -70,6 +71,14 @@ class OrderController extends Controller
 
             $this->createLines($order, $request->lines ?? []);
 
+            // Creation is part of the story too: from_status null -> draft.
+            ActivityLog::create([
+                "order_id" => $order->id,
+                "actor_id" => $request->user()->id,
+                "from_status" => null,
+                "to_status" => OrderStatus::Draft->value,
+            ]);
+
             return $order;
         });
 
@@ -84,7 +93,7 @@ class OrderController extends Controller
      */
     public function show(Request $request, string $id)
     {
-        $order = Order::with(['lines.item:id,name,sku', 'requester:id,name'])
+        $order = Order::with(['lines.item:id,name,sku', 'requester:id,name', 'activities.actor:id,name'])
             ->findOrFail($id);
 
         if ($request->user()->hasRole(UserRole::Requester) && $order->user_id !== $request->user()->id) {

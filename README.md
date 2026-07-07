@@ -81,3 +81,22 @@ Decisions on details the brief leaves open, recorded as they are made.
   cover the list's needs. Easy to add later without breaking the contract.
 - **Client-sent prices are ignored**: line payloads carry only `item_id`
   and `qty`; `unit_price` always comes from the catalog server-side.
+
+**Part 3 — The loop**
+
+- **Transitions are one nested resource** — `POST /orders/{order}/transitions`
+  with `{ "action": ... }` — instead of one route per action; the action name
+  is validated against the 7 allowed transitions.
+- **Reject reason field is `reason`; cancel note field is `note`** — both
+  stored in the activity log's `note` column.
+- **Fulfill locks item rows** (`SELECT ... FOR UPDATE`) while re-checking
+  and deducting stock, so two concurrent fulfills can't oversell; a
+  failed re-check throws inside the transaction, rolling back any
+  partial work.
+- **Approve re-checks but never deducts** — stock only moves at fulfill,
+  so approving reserves nothing (per the brief's fulfill-time re-check).
+- **Guard error messages name the offending items** (name, SKU, requested
+  vs. available) so the approver knows exactly what failed.
+- **Line qty is capped at 1000** by CRUD validation, so the brief's
+  qty-999999 walkthrough step is demoed with a qty within the cap that
+  still exceeds stock — same guard, same 422.
