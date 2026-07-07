@@ -1,29 +1,94 @@
-import { FiLogOut } from 'react-icons/fi'
-import type { User } from '../../lib/types'
+import { Link, useLocation } from 'react-router-dom'
 import ThemeToggle from '../ui/ThemeToggle'
+import { getUser } from '@/lib/auth'
+import { useOrder } from '@/hooks/useOrders'
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
 
-interface Props {
-  user: User
-  onLogout: () => void
-  isLoggingOut: boolean
-}
+export default function Topbar() {
+  const user = getUser();
+  const role = user?.role || '';
+  const location = useLocation();
 
-export default function Topbar({ user, onLogout, isLoggingOut }: Props) {
+  // Detect route patterns
+  const isOrdersList = location.pathname === '/orders';
+  const isNewOrder = location.pathname === '/orders/new';
+  const orderIdMatch = location.pathname.match(/^\/orders\/(\d+)$/);
+  const orderId = orderIdMatch ? orderIdMatch[1] : null;
+
+  // Fetch order details if viewing order details
+  const { data: order, isPending } = useOrder(orderId || undefined);
+
+  // Role-specific styling for the role badge
+  const roleBadgeStyle = role === 'approver'
+    ? 'bg-secondary-fixed text-on-secondary-fixed-variant'
+    : 'bg-primary-fixed text-on-primary-fixed-variant';
+
   return (
-    <header className="flex items-center justify-end gap-4 border-b border-outline-variant bg-surface-container-lowest px-8 py-4">
+    <header className="flex items-center justify-between gap-4 border-b border-outline-variant bg-surface-container-lowest px-8 py-4">
+      <Breadcrumb>
+        <BreadcrumbList>
+          {/* Level 1: Role Badge */}
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link to="/orders">
+                <span className={`rounded-full px-3 py-1 text-label-sm uppercase tracking-wide ${roleBadgeStyle}`}>
+                  {role}
+                </span>
+              </Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+
+          {/* Level 2: Orders List */}
+          {isOrdersList ? (
+            <>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Orders List</BreadcrumbPage>
+              </BreadcrumbItem>
+            </>
+          ) : (
+            <>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link to="/orders">Orders List</Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+            </>
+          )}
+
+          {/* Level 3: New Order or Order Details */}
+          {isNewOrder && (
+            <>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>New Order</BreadcrumbPage>
+              </BreadcrumbItem>
+            </>
+          )}
+
+          {orderId && (
+            <>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>
+                  {isPending ? 'Loading...' : order?.number || `Order #${orderId}`}
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </>
+          )}
+        </BreadcrumbList>
+      </Breadcrumb>
+
       <ThemeToggle />
-      <span className="text-body-md text-on-surface">{user.name}</span>
-      <span className="rounded-full bg-primary-fixed px-3 py-1 text-label-sm uppercase tracking-wide text-on-primary-fixed-variant">
-        {user.role}
-      </span>
-      <button
-        onClick={onLogout}
-        disabled={isLoggingOut}
-        className="flex items-center gap-2 text-label-md text-on-surface hover:text-primary disabled:opacity-50"
-      >
-        <FiLogOut className="size-5" />
-        Logout
-      </button>
     </header>
   )
 }
+

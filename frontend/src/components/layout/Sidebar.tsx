@@ -1,31 +1,28 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
-  FiHelpCircle,
   FiList,
   FiPlus,
   FiPlusSquare,
-  FiSettings,
 } from 'react-icons/fi'
 import Logo from '../ui/Logo'
-
-interface Props {
-  canCreate: boolean
-}
+import { getUser } from '@/lib/auth'
+import { ProfileDialog } from '../user/ProfileDialog'
 
 const navItem = ({ isActive }: { isActive: boolean }) =>
-  `relative flex items-center gap-3 rounded px-4 py-3 text-label-md ${
-    isActive
-      ? 'bg-action/15 text-primary before:absolute before:inset-y-0 before:left-0 before:w-1 before:rounded-full before:bg-action'
-      : 'text-on-surface-variant hover:bg-surface-container'
+  `relative flex items-center gap-3 rounded px-4 py-3 text-label-md ${isActive
+    ? 'bg-action/15 text-primary before:absolute before:inset-y-0 before:left-0 before:w-1 before:rounded-full before:bg-action'
+    : 'text-on-surface-variant hover:bg-surface-container'
   }`
 
-export default function Sidebar({ canCreate }: Props) {
+export default function Sidebar() {
+  const user = getUser();
+  const canCreate = user?.role && user.role === 'requester'
   const navigate = useNavigate()
 
   return (
-    <aside className="flex w-72 shrink-0 flex-col border-r border-outline-variant bg-surface-container-lowest">
+    <aside className="flex w-64 shrink-0 flex-col border-r border-outline-variant bg-surface-container-lowest">
       <div className="px-5 py-6">
-        <Logo titleOnly imageClassName='size-8'/>
+        <Logo titleOnly imageClassName='size-8' />
       </div>
 
       {canCreate && (
@@ -54,14 +51,7 @@ export default function Sidebar({ canCreate }: Props) {
       </nav>
 
       <div className="mt-auto flex flex-col gap-1 px-4 pb-6">
-        <button className="flex items-center gap-3 rounded px-4 py-3 text-label-md text-on-surface-variant hover:bg-surface-container">
-          <FiSettings className="size-5" />
-          Settings
-        </button>
-        <button className="flex items-center gap-3 rounded px-4 py-3 text-label-md text-on-surface-variant hover:bg-surface-container">
-          <FiHelpCircle className="size-5" />
-          Support
-        </button>
+        <ProfileDialog />
       </div>
     </aside>
   )
