@@ -2,6 +2,8 @@ import { clearAuth, getToken } from './auth'
 
 export const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
+const REQUEST_TIMEOUT_MS = 10_000
+
 export class ApiError extends Error {
   status: number
 
@@ -14,7 +16,6 @@ export class ApiError extends Error {
 /**
  * Fetch wrapper for the Laravel API: attaches the Sanctum bearer token,
  * parses JSON, and throws ApiError with the server's message on failure.
- * A 401 clears stored auth so route guards can bounce to /login.
  * Used as the base for all react-query queryFn/mutationFn calls.
  */
 export async function api<T>(
@@ -23,15 +24,26 @@ export async function api<T>(
 ): Promise<T> {
   const token = getToken()
 
-  const response = await fetch(`${BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  })
+  let response: Response
+  try {
+    response = await fetch(`${BASE_URL}${path}`, {
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      ...options,
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.headers,
+      },
+    })
+  } catch (cause) {
+    throw new ApiError(
+      0,
+      cause instanceof DOMException && cause.name === 'TimeoutError'
+        ? 'The server took too long to respond. Please try again.'
+        : 'Cannot reach the server. Check that the backend is running.',
+    )
+  }
 
   const body = await response.json().catch(() => null)
 
