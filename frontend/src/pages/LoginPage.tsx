@@ -1,12 +1,14 @@
 import { Navigate } from "react-router-dom";
-import { getToken } from "../lib/auth";
+import { useAuth } from "@/hooks/useAuth";
 import { ImageSide } from "../components/login/ImageSide";
 import { LoginForm } from "@/components/login/LoginForm";
 import Logo from "@/components/ui/Logo";
 
 export function LoginPage() {
+  const { isAuthenticated } = useAuth();
+
   // Already logged in — skip straight to the app.
-  if (getToken()) {
+  if (isAuthenticated) {
     return <Navigate to="/orders" replace />;
   }
 

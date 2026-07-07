@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import OrdersTable from '../components/orders/OrdersTable'
 import OrdersToolbar from '../components/orders/OrdersToolbar'
 import { useOrders } from '../hooks/useOrders'
-import { getUser } from '../lib/auth'
+import { useAuth } from '@/hooks/useAuth'
 import type { OrderStatus } from '../lib/types'
 
 /**
@@ -12,7 +12,7 @@ import type { OrderStatus } from '../lib/types'
  */
 export default function OrdersPage() {
   const navigate = useNavigate()
-  const user = getUser()!
+  const { user } = useAuth()
 
   const [status, setStatus] = useState<OrderStatus | ''>('')
   const [searchInput, setSearchInput] = useState('')
@@ -29,7 +29,7 @@ export default function OrdersPage() {
   return (
     <div className="mx-auto flex max-w-page flex-col gap-6">
       <OrdersToolbar
-        canCreate={user.role === 'requester'}
+        canCreate={user?.role === 'requester'}
         status={status}
         search={searchInput}
         onStatusChange={setStatus}

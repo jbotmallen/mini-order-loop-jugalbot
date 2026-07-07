@@ -100,3 +100,27 @@ Decisions on details the brief leaves open, recorded as they are made.
 - **Line qty is capped at 1000** by CRUD validation, so the brief's
   qty-999999 walkthrough step is demoed with a qty within the cap that
   still exceeds stock — same guard, same 422.
+
+**Part 4 — UI**
+
+- **Routing**: `react-router-dom` with real client-side routes
+  (`/login`, `/orders`, `/orders/:id`) rather than state-based page
+  switching — working URLs, back button, and refresh.
+- **Dark mode**: the design spec defines only a light palette, so the
+  dark palette is derived following Material Design 3 dark-scheme
+  conventions the spec's token names already imply (e.g. light
+  `inverse-primary` becomes dark `primary`, `*-fixed` tokens are
+  identical in both modes). First visit follows the OS preference; a
+  toggle overrides it and the choice persists in `localStorage`.
+- **Theme tokens** live as Tailwind v4 `@theme` variables; dark mode is
+  a `.dark` class on `<html>` (applied before first paint) that swaps
+  the CSS custom properties, so the same utility classes work in both
+  modes.
+- **Radius and spacing scales** from the design spec match Tailwind's
+  defaults exactly, so they are not overridden.
+- **Inter font** is bundled via `@fontsource-variable/inter` instead of
+  a CDN link so the demo works without network access.
+- **UI brand name is "OrderLoop"** — the brief names no product, so the
+  interface carries its own name and a loop-arrow logo (the order state
+  machine as a mark). Repo and docs keep the exam's "Mini Order Loop"
+  title.

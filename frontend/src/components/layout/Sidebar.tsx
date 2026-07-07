@@ -5,7 +5,7 @@ import {
   FiPlusSquare,
 } from 'react-icons/fi'
 import Logo from '../ui/Logo'
-import { getUser } from '@/lib/auth'
+import { useAuth } from '@/hooks/useAuth'
 import { ProfileDialog } from '../user/ProfileDialog'
 
 const navItem = ({ isActive }: { isActive: boolean }) =>
@@ -15,8 +15,8 @@ const navItem = ({ isActive }: { isActive: boolean }) =>
   }`
 
 export default function Sidebar() {
-  const user = getUser();
-  const canCreate = user?.role && user.role === 'requester'
+  const { user } = useAuth();
+  const canCreate = user?.role === 'requester'
   const navigate = useNavigate()
 
   return (

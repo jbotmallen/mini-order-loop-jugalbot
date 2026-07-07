@@ -1,12 +1,12 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Controller, useForm } from "react-hook-form"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { api, ApiError } from "@/lib/api"
-import { storeAuth } from "@/lib/auth"
+import { useAuth } from "@/hooks/useAuth"
 import type { LoginResponse } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import {
@@ -34,6 +34,8 @@ import { formSchema, type FormValues } from "@/schemas/login"
 export const LoginForm = () => {
   const [revealPassword, setRevealPassword] = useState(false)
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { login: setSession } = useAuth()
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -50,7 +52,10 @@ export const LoginForm = () => {
         body: JSON.stringify(values),
       }),
     onSuccess: ({ token, user }) => {
-      storeAuth(token, user)
+      setSession(token, user)
+      // Drop any cache from a previous session so a different user never
+      // sees the last user's orders.
+      queryClient.removeQueries()
       navigate("/orders", { replace: true })
     },
     onError: (error) => {

@@ -1,4 +1,4 @@
-import { clearAuth, getToken, getUser } from "@/lib/auth"
+import { useAuth } from "@/hooks/useAuth"
 import { Dialog, DialogContent, DialogTrigger } from "../ui/dialog";
 import { Loader2Icon, UserCog2Icon, UserIcon } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -8,20 +8,20 @@ import { FiLogOut } from "react-icons/fi";
 import { Button } from "../ui/button";
 
 export const ProfileDialog = () => {
-  const user = getUser();
+  const { user, isAuthenticated, logout: clearSession } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
   const logout = useMutation({
     mutationFn: () => api('/logout', { method: 'POST' }),
     onSettled: () => {
-      clearAuth()
+      clearSession()
       queryClient.clear()
       navigate('/login')
     },
   })
 
-  if (!getToken() || !user) {
+  if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />
   }
 

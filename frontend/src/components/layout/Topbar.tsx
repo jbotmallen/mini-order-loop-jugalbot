@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import ThemeToggle from '../ui/ThemeToggle'
-import { getUser } from '@/lib/auth'
+import { useAuth } from '@/hooks/useAuth'
 import { useOrder } from '@/hooks/useOrders'
 import {
   Breadcrumb,
@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/breadcrumb"
 
 export default function Topbar() {
-  const user = getUser();
+  const { user } = useAuth();
   const role = user?.role || '';
   const location = useLocation();
 

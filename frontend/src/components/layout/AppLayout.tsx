@@ -1,12 +1,12 @@
 import { Navigate, Outlet } from 'react-router-dom'
-import { getToken, getUser } from '../../lib/auth'
+import { useAuth } from '@/hooks/useAuth'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 
 export default function AppLayout() {
-  const user = getUser()
+  const { isAuthenticated } = useAuth()
 
-  if (!getToken() || !user) {
+  if (!isAuthenticated) {
     return <Navigate to="/login" replace />
   }
 
