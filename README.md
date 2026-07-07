@@ -59,3 +59,25 @@ Decisions on details the brief leaves open, recorded as they are made.
 - **`line_total`** is stored (per the brief) but always derived: the
   `OrderLine` model recomputes `qty × unit_price` on every save so it can
   never drift.
+
+**Part 2 — API core**
+
+- **Auth**: Sanctum personal access tokens (bearer), not SPA cookie/session
+  auth — simplest fit for a fully separate Vite SPA hitting a JSON API.
+- **Order visibility**: a requester sees only their own orders; an approver
+  sees all orders (they need submitted ones to act on, and the whole
+  pipeline is their business). Editing stays owner-only regardless.
+- **Routes**: RESTful `apiResource` for order CRUD plus one POST
+  `/orders/{id}/{action}` per transition. Errors are always
+  `{ "message": ... }` JSON with 401/403/404/422.
+- **Line updates replace the whole array**: a PUT with a `lines` key
+  deletes the draft's lines and recreates them from the payload, with a
+  fresh price snapshot — acceptable because the order is still `draft`;
+  prices only need to freeze from submission onward.
+- **Draft deletion is allowed** (owner only, `draft` only) — a requester
+  should be able to discard an order they never submitted. Cancelled is
+  for orders that entered the pipeline.
+- **No pagination**: two users and a demo-sized dataset; filters + search
+  cover the list's needs. Easy to add later without breaking the contract.
+- **Client-sent prices are ignored**: line payloads carry only `item_id`
+  and `qty`; `unit_price` always comes from the catalog server-side.
