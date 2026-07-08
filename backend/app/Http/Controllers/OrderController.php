@@ -22,15 +22,20 @@ class OrderController extends Controller
         $request->validate([
             "status" => ["nullable", Rule::in(array_column(OrderStatus::cases(), 'value'))],
             "search" => "nullable|string|max:50",
+            "per_page" => "nullable|integer|min:1|max:100",
         ], [
             "status.in" => "Status must be one of: " . implode(', ', array_column(OrderStatus::cases(), 'value')) . ".",
             "search.max" => "Search text may not exceed 50 characters.",
+            "per_page.integer" => "Per-page must be a whole number.",
+            "per_page.min" => "Per-page must be at least 1.",
+            "per_page.max" => "Per-page may not exceed 100.",
         ]);
 
         $query = Order::query()
             ->with('requester:id,name')
             ->withCount('lines')
-            ->withSum('lines', 'line_total');
+            ->withSum('lines', 'line_total')
+            ->withMax('activities', 'created_at');
 
         if ($request->user()->hasRole(UserRole::Requester)) {
             $query->where('user_id', $request->user()->id);
@@ -44,8 +49,16 @@ class OrderController extends Controller
             $query->where('number', 'ilike', '%' . $request->query('search') . '%');
         }
 
+        $orders = $query->latest()->paginate((int) $request->query('per_page', 10));
+
         return response()->json([
-            'data' => $query->latest()->get(),
+            'data' => $orders->items(),
+            'meta' => [
+                'current_page' => $orders->currentPage(),
+                'last_page' => $orders->lastPage(),
+                'per_page' => $orders->perPage(),
+                'total' => $orders->total(),
+            ],
             'message' => 'Orders fetched successfully',
         ], 200);
     }
@@ -71,7 +84,6 @@ class OrderController extends Controller
 
             $this->createLines($order, $request->lines ?? []);
 
-            // Creation is part of the story too: from_status null -> draft.
             ActivityLog::create([
                 "order_id" => $order->id,
                 "actor_id" => $request->user()->id,
@@ -166,7 +178,7 @@ class OrderController extends Controller
             ], 422);
         }
 
-        $order->delete(); // lines removed by FK cascade
+        $order->delete();
 
         return response()->json([
             "message" => "Order deleted successfully",
@@ -179,7 +191,7 @@ class OrderController extends Controller
             "remarks" => "nullable|string|max:255",
             "lines" => "nullable|array|max:20",
             "lines.*.item_id" => "required|integer|distinct|exists:items,id",
-            "lines.*.qty" => "required|integer|min:1|max:1000",
+            "lines.*.qty" => "required|integer|min:1|max:999999",
         ];
     }
 
@@ -196,7 +208,7 @@ class OrderController extends Controller
             "lines.*.qty.required" => "Line :position is missing a quantity.",
             "lines.*.qty.integer" => "Line :position quantity must be a whole number.",
             "lines.*.qty.min" => "Line :position quantity must be at least 1.",
-            "lines.*.qty.max" => "Line :position quantity may not exceed 1000.",
+            "lines.*.qty.max" => "Line :position quantity may not exceed 999999.",
         ];
     }
 

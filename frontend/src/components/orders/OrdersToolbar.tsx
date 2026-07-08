@@ -14,6 +14,8 @@ interface Props {
   onStatusChange: (status: OrderStatus | '') => void
   onSearchChange: (search: string) => void
   onNewOrder: () => void
+  onExport: () => void
+  isExporting: boolean
 }
 
 export default function OrdersToolbar({
@@ -23,6 +25,8 @@ export default function OrdersToolbar({
   onStatusChange,
   onSearchChange,
   onNewOrder,
+  onExport,
+  isExporting,
 }: Props) {
   return (
     <div className="flex flex-wrap items-center gap-3 rounded border border-outline-variant bg-surface-container-lowest p-4">
@@ -84,12 +88,13 @@ export default function OrdersToolbar({
       </div>
 
       <button
-        disabled
-        title="CSV export arrives in Part 5"
-        className="flex items-center gap-2 rounded border border-outline-variant bg-surface-container-lowest px-4 py-2 text-label-md text-on-surface-variant opacity-50"
+        onClick={onExport}
+        disabled={isExporting}
+        title="Download the current filtered list as CSV"
+        className="flex items-center gap-2 rounded border border-outline-variant bg-surface-container-lowest px-4 py-2 text-label-md text-on-surface hover:bg-surface-container disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <FiDownload className="size-4" />
-        Export CSV
+        <FiDownload className={`size-4 ${isExporting ? 'animate-pulse' : ''}`} />
+        {isExporting ? 'Exporting…' : 'Export CSV'}
       </button>
     </div>
   )

@@ -59,6 +59,8 @@ export interface OrderSummary {
   requester: { id: number; name: string }
   lines_count: number
   lines_sum_line_total: string | null
+  /** Timestamp of the most recent activity-log row; null if none yet. */
+  activities_max_created_at: string | null
 }
 
 /** A single order line, with its price snapshot and the catalog item. */

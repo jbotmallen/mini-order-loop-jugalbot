@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { toast } from 'sonner'
 import OrdersTable from '../components/orders/OrdersTable'
 import OrdersToolbar from '../components/orders/OrdersToolbar'
 import { TablePagination } from '@/components/ui/table-pagination'
-import { useOrders } from '../hooks/useOrders'
+import { fetchAllOrders, useOrders } from '../hooks/useOrders'
 import { useAuth } from '@/hooks/useAuth'
+import { ApiError } from '../lib/api'
+import { downloadCsv, toCsv } from '../lib/csv'
+import { formatDateTime } from '../lib/format'
 import { ORDER_STATUSES, type OrderStatus } from '../lib/types'
 
 /**
@@ -79,6 +83,43 @@ export default function OrdersPage() {
   const orders = data?.orders ?? []
   const meta = data?.meta
 
+  // Export the whole filtered set (all pages), not just the visible page, so a
+  // CSV filtered to e.g. "cancelled" contains every cancelled order.
+  const [isExporting, setIsExporting] = useState(false)
+  const handleExport = async () => {
+    if (isExporting) return
+    setIsExporting(true)
+    try {
+      const rows = await fetchAllOrders({ status, search })
+      if (rows.length === 0) {
+        toast.info('No orders match the current filters — nothing to export.')
+        return
+      }
+      const csv = toCsv(
+        ['Order No.', 'Requester', 'Status', 'Total Amount', 'Lines', 'Created Date', 'Last Activity'],
+        rows.map((o) => [
+          o.number,
+          o.requester.name,
+          o.status,
+          Number(o.lines_sum_line_total ?? 0).toFixed(2),
+          o.lines_count,
+          formatDateTime(o.created_at),
+          o.activities_max_created_at ? formatDateTime(o.activities_max_created_at) : '',
+        ]),
+      )
+      const stamp = new Date().toISOString().slice(0, 10)
+      const suffix = status ? `-${status}` : ''
+      downloadCsv(`orders${suffix}-${stamp}.csv`, csv)
+      toast.success(`Exported ${rows.length} order${rows.length === 1 ? '' : 's'} to CSV.`)
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError ? err.message : 'Failed to export orders.',
+      )
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   return (
     <div className="mx-auto flex max-w-page flex-col">
       <OrdersToolbar
@@ -88,6 +129,8 @@ export default function OrdersPage() {
         onStatusChange={setStatus}
         onSearchChange={setSearchInput}
         onNewOrder={() => navigate('/orders/new')}
+        onExport={handleExport}
+        isExporting={isExporting}
       />
 
       <OrdersTable

@@ -48,6 +48,36 @@ export function useOrders(filters: OrdersFilters) {
   })
 }
 
+/**
+ * Fetch every order matching the current filters (status + search), walking the
+ * server paginator at the max page size until the last page. Used by the CSV
+ * export so the file honors the active filters over the *whole* result set, not
+ * just the page the user is looking at. Not a hook — called imperatively on
+ * click.
+ */
+export async function fetchAllOrders(
+  filters: Omit<OrdersFilters, 'page'>,
+): Promise<OrderSummary[]> {
+  const PER_PAGE = 100
+  const all: OrderSummary[] = []
+  let page = 1
+  let lastPage = 1
+
+  do {
+    const params = new URLSearchParams()
+    if (filters.status) params.set('status', filters.status)
+    if (filters.search) params.set('search', filters.search)
+    params.set('per_page', String(PER_PAGE))
+    params.set('page', String(page))
+    const response = await api<OrdersResponse>(`/orders?${params.toString()}`)
+    all.push(...response.data)
+    lastPage = response.meta.last_page
+    page += 1
+  } while (page <= lastPage)
+
+  return all
+}
+
 interface OrderDetailResponse {
   order: Omit<OrderDetail, 'total'>
   total: string | number
