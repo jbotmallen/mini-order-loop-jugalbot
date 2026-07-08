@@ -7,6 +7,7 @@ import {
 } from 'react-icons/fi'
 import { formatDateTime, formatMoney } from '../../lib/format'
 import type { OrderSummary } from '../../lib/types'
+import { TableScroll, stickyHead } from '@/components/ui/table-scroll'
 import StatusBadge from './StatusBadge'
 
 interface Props {
@@ -16,8 +17,7 @@ interface Props {
   onRowClick: (order: OrderSummary) => void
 }
 
-const th =
-  'px-4 py-3 text-left text-label-sm uppercase tracking-wide text-on-surface-variant'
+const th = `px-4 py-3 text-left text-label-sm uppercase tracking-wide text-on-surface-variant ${stickyHead}`
 
 export default function OrdersTable({
   orders,
@@ -26,7 +26,7 @@ export default function OrdersTable({
   onRowClick,
 }: Props) {
   return (
-    <div className="overflow-hidden rounded border border-outline-variant bg-surface-container-lowest">
+    <TableScroll className="rounded border border-outline-variant bg-surface-container-lowest">
       <table className="w-full">
         <thead>
           <tr className="border-b border-outline-variant bg-surface-container-low">
@@ -119,6 +119,6 @@ export default function OrdersTable({
             ))}
         </tbody>
       </table>
-    </div>
+    </TableScroll>
   )
 }

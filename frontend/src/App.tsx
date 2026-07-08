@@ -2,8 +2,9 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { Toaster } from '@/components/ui/sonner'
 import AppLayout from './components/layout/AppLayout'
 import { LoginPage } from './pages/LoginPage'
+import OrderDetailPage from './pages/OrderDetailPage'
+import OrderFormPage from './pages/OrderFormPage'
 import OrdersPage from './pages/OrdersPage'
-import PlaceholderPage from './pages/PlaceholderPage'
 
 function App() {
   return (
@@ -13,24 +14,9 @@ function App() {
 
       <Route element={<AppLayout />}>
         <Route path="/orders" element={<OrdersPage />} />
-        <Route
-          path="/orders/new"
-          element={
-            <PlaceholderPage
-              title="New Order"
-              note="Order form — coming in the next step."
-            />
-          }
-        />
-        <Route
-          path="/orders/:id"
-          element={
-            <PlaceholderPage
-              title="Order Detail"
-              note="Order detail page — coming in the next step."
-            />
-          }
-        />
+        <Route path="/orders/new" element={<OrderFormPage />} />
+        <Route path="/orders/:id" element={<OrderDetailPage />} />
+        <Route path="/orders/:id/edit" element={<OrderFormPage />} />
         <Route path="*" element={<Navigate to="/orders" replace />} />
       </Route>
     </Routes>

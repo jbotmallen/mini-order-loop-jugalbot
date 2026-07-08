@@ -1,33 +1,86 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import OrdersTable from '../components/orders/OrdersTable'
 import OrdersToolbar from '../components/orders/OrdersToolbar'
+import { TablePagination } from '@/components/ui/table-pagination'
 import { useOrders } from '../hooks/useOrders'
 import { useAuth } from '@/hooks/useAuth'
-import type { OrderStatus } from '../lib/types'
+import { ORDER_STATUSES, type OrderStatus } from '../lib/types'
 
 /**
- * Hub for the orders list: owns filter state and the orders query,
- * passes only what each child needs.
+ * Hub for the orders list. The active filters (status + search) live in the URL
+ * query string so a view is shareable — another logged-in user can paste the
+ * link and land on the exact same filtered list. The URL is the source of
+ * truth; the search box keeps its own immediate state and writes back debounced
+ * so typing neither spams requests nor floods history.
  */
 export default function OrdersPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
 
-  const [status, setStatus] = useState<OrderStatus | ''>('')
-  const [searchInput, setSearchInput] = useState('')
-  const [search, setSearch] = useState('')
+  // Read filters from the URL, ignoring an unknown status param.
+  const statusParam = searchParams.get('status') as OrderStatus | null
+  const status: OrderStatus | '' =
+    statusParam && ORDER_STATUSES.includes(statusParam) ? statusParam : ''
+  const search = searchParams.get('q') ?? ''
+  const page = Math.max(1, Number(searchParams.get('page')) || 1)
 
-  // Debounce typing so we don't fire a request per keystroke.
+  const [searchInput, setSearchInput] = useState(search)
+
+  // Changing the status resets to page 1 — the old page number rarely exists
+  // in the newly filtered set.
+  const setStatus = (next: OrderStatus | '') => {
+    setSearchParams(
+      (prev) => {
+        const params = new URLSearchParams(prev)
+        if (next) params.set('status', next)
+        else params.delete('status')
+        params.delete('page')
+        return params
+      },
+      { replace: true },
+    )
+  }
+
+  const setPage = (next: number) => {
+    setSearchParams(
+      (prev) => {
+        const params = new URLSearchParams(prev)
+        if (next > 1) params.set('page', String(next))
+        else params.delete('page')
+        return params
+      },
+      { replace: true },
+    )
+  }
+
+  // Debounce typing into the URL so we don't fire a request or push a history
+  // entry per keystroke. Skip the write when nothing changed (e.g. mount, or a
+  // status flip re-running this effect) to avoid a redundant navigation.
   useEffect(() => {
-    const handle = setTimeout(() => setSearch(searchInput), 300)
+    if (searchInput === search) return
+    const handle = setTimeout(() => {
+      setSearchParams(
+        (prev) => {
+          const params = new URLSearchParams(prev)
+          if (searchInput) params.set('q', searchInput)
+          else params.delete('q')
+          params.delete('page')
+          return params
+        },
+        { replace: true },
+      )
+    }, 300)
     return () => clearTimeout(handle)
-  }, [searchInput])
+  }, [searchInput, search, setSearchParams])
 
-  const { data: orders = [], isPending, error } = useOrders({ status, search })
+  const { data, isPending, error } = useOrders({ status, search, page })
+  const orders = data?.orders ?? []
+  const meta = data?.meta
 
   return (
-    <div className="mx-auto flex max-w-page flex-col gap-6">
+    <div className="mx-auto flex max-w-page flex-col">
       <OrdersToolbar
         canCreate={user?.role === 'requester'}
         status={status}
@@ -44,12 +97,21 @@ export default function OrdersPage() {
         onRowClick={(order) => navigate(`/orders/${order.id}`)}
       />
 
-      {!isPending && !error && (
-        <p className="text-body-sm text-on-surface-variant">
-          {orders.length === 0
-            ? 'Showing 0 orders'
-            : `Showing 1 to ${orders.length} of ${orders.length} orders`}
-        </p>
+      {!isPending && !error && meta && (
+        <div className="mt-3 flex flex-col-reverse items-start justify-between gap-3 sm:flex-row sm:items-center">
+          <p className="text-body-sm text-on-surface-variant">
+            {meta.total === 0
+              ? 'Showing 0 orders'
+              : `Showing ${(meta.current_page - 1) * meta.per_page + 1} to ${
+                  (meta.current_page - 1) * meta.per_page + orders.length
+                } of ${meta.total} orders`}
+          </p>
+          <TablePagination
+            page={meta.current_page}
+            pageCount={meta.last_page}
+            onPageChange={setPage}
+          />
+        </div>
       )}
     </div>
   )

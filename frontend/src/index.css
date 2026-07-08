@@ -232,6 +232,28 @@
   html {
     @apply font-sans;
   }
+
+  /* App-wide scrollbar: thin, no track, no arrow buttons, subtle rounded
+     thumb that adapts to light/dark via the outline-variant token. Applies to
+     every overflow area (tables, dialogs, the activity timeline, …). */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-outline-variant) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--color-outline-variant);
+    border-radius: 9999px;
+  }
+  *::-webkit-scrollbar-button {
+    display: none;
+  }
 }
 
 @theme inline {

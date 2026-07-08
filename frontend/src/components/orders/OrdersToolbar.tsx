@@ -1,4 +1,4 @@
-import { FiChevronDown, FiDownload, FiPlus, FiSearch } from 'react-icons/fi'
+import { FiCheck, FiChevronDown, FiDownload, FiPlus, FiSearch } from 'react-icons/fi'
 import { ORDER_STATUSES, type OrderStatus } from '../../lib/types'
 import {
   DropdownMenu,
@@ -50,16 +50,22 @@ export default function OrdersToolbar({
         <DropdownMenuContent className="min-w-48">
           <DropdownMenuItem
             onSelect={() => onStatusChange('')}
-            className="cursor-pointer"
+            className="cursor-pointer gap-2"
           >
+            <FiCheck
+              className={`size-4 ${status ? 'invisible' : 'text-primary'}`}
+            />
             All Statuses
           </DropdownMenuItem>
           {ORDER_STATUSES.map((s) => (
             <DropdownMenuItem
               key={s}
               onSelect={() => onStatusChange(s)}
-              className="capitalize cursor-pointer"
+              className="capitalize cursor-pointer gap-2"
             >
+              <FiCheck
+                className={`size-4 ${status === s ? 'text-primary' : 'invisible'}`}
+              />
               {s.charAt(0).toUpperCase() + s.slice(1)}
             </DropdownMenuItem>
           ))}
